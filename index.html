@@ -133,8 +133,8 @@
 
         /* Delete Icon - Independent Size Control */
         #deleteIcon {
-            width: 28px;   /* ← Change this to resize X icon */
-            height: 28px;  /* ← Change this to resize X icon */
+            width: 28px;
+            height: 28px;
             opacity: 0.6;
             cursor: pointer;
             flex-shrink: 0;
@@ -184,6 +184,13 @@
         .btn:active {
             background: var(--btn-hover);
         }
+
+        /* Disabled buttons visual 
+        .btn:disabled {
+            opacity: 0.35;
+            cursor: default;
+        }
+        */
 
         /* Ripple Effect */
         .ripple {
@@ -283,10 +290,9 @@
                     <line x1="18" y1="9" x2="18" y2="15"/>
                 </svg>
                 <svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                    <rect x="4" y="4" width="17" height="17" rx="2.5"/>  <!-- Outer square -->           
-                    <!-- The 4 symbols in each quarter: -->
-                    <text x="6" y="12.5" font-size="8" fill="currentColor" stroke-width="0.5">√</text>    <!-- Top-left: Square root -->
-                    <text x="13" y="18" font-size="8" fill="currentColor" stroke-width="0.5">π</text>   <!-- Top-right: Pi -->
+                    <rect x="4" y="4" width="17" height="17" rx="2.5"/>        
+                    <text x="6" y="12.5" font-size="8" fill="currentColor" stroke-width="0.5">√</text>
+                    <text x="13" y="18" font-size="8" fill="currentColor" stroke-width="0.5">π</text>
                 </svg>
             </div>
             <svg class="toolbar-icon" viewBox="0 0 24 24" fill="none" stroke="#23c015" stroke-width="2">
@@ -333,7 +339,7 @@
     </div>
 
     <script>
-        // Calculator with Forcing Number State
+        // Calculator with Forcing Number State and divide-lock mode
         class AdvancedCalculator {
             constructor() {
                 this.formulaDisplay = document.getElementById('formulaDisplay');
@@ -343,6 +349,10 @@
                 // State variables
                 this.state = 0; // 0 = normal, 1 = forcing number mode
                 this.forcing_number = null;
+
+                // Divide lock mode: only % clickable when true
+                this.isDivideLockMode = false;
+                this.buttons = null; // will be set in initializeEventListeners
                 
                 // Calculator variables
                 this.formula = '';
@@ -359,8 +369,9 @@
 
             // Initialize all button event listeners
             initializeEventListeners() {
-                const buttons = document.querySelectorAll('.btn');
-                buttons.forEach(button => {
+                this.buttons = document.querySelectorAll('.btn');
+
+                this.buttons.forEach(button => {
                     button.addEventListener('click', (e) => {
                         this.createRipple(e);
                         this.handleButtonClick(button);
@@ -375,6 +386,35 @@
                         this.handleBackspace();
                     });
                 }
+            }
+
+            // Enter divide lock mode: only % button enabled
+            enterDivideLockMode() {
+                this.isDivideLockMode = true;
+                this.updateButtonsEnabledState();
+            }
+
+            // Exit divide lock mode: all buttons enabled
+            exitDivideLockMode() {
+                if (!this.isDivideLockMode) return;
+                this.isDivideLockMode = false;
+                this.updateButtonsEnabledState();
+            }
+
+            // Apply enabled/disabled state to all buttons
+            updateButtonsEnabledState() {
+                if (!this.buttons) return;
+
+                this.buttons.forEach(button => {
+                    const action = button.dataset.action;
+
+                    if (this.isDivideLockMode) {
+                        const isPercent = action === 'apply-forcing-percent';
+                        button.disabled = !isPercent;
+                    } else {
+                        button.disabled = false;
+                    }
+                });
             }
 
             // Create ripple effect
@@ -441,6 +481,11 @@
 
             // Apply forcing percent logic
             applyForcingPercent() {
+                // Whenever % is pressed, exit divide-lock mode if active
+                if (this.isDivideLockMode) {
+                    this.exitDivideLockMode();
+                }
+
                 if (this.state === 0 && this.forcing_number !== null && this.currentNumber !== '' && this.formula !== '') {
                     // Find the last operator position in formula
                     const lastOperatorIndex = this.findLastOperatorIndex(this.formula);
@@ -455,7 +500,6 @@
                             const resultBeforeLast = this.evaluateExpression(expressionBeforeLast);
                             
                             // Apply the formula: new_last_number = resultBeforeLast - forcing_number
-                            // Example: 1+2+3+4 = 10, then 10 - 7 = 3
                             const newLastNumber = resultBeforeLast - this.forcing_number;
                             
                             // Update formula with the last operator (to be ready for next input)
@@ -488,7 +532,7 @@
                     // Forcing number mode
                     this.currentNumber += num;
                     this.resultDisplay.textContent = this.currentNumber;
-                    this.updateForcingButton();  // ← Update button display
+                    this.updateForcingButton();
                 } else {
                     // Normal mode
                     if (this.shouldResetOnNextInput) {
@@ -529,6 +573,13 @@
             // Input operator
             inputOperator(operator) {
                 if (this.state === 1) return; // Ignore in forcing mode
+
+                // Special behavior for divide:
+                // when ÷ is pressed, do not modify the formula, just lock the buttons
+                if (operator === '÷') {
+                    this.enterDivideLockMode();
+                    return;
+                }
 
                 if (this.shouldResetOnNextInput) {
                     this.formula = this.result;
@@ -580,15 +631,13 @@
                     // Save forcing number and return to normal mode
                     if (this.currentNumber !== '') {
                         this.forcing_number = parseFloat(this.currentNumber);
-                        console.log('Forcing number saved:', this.forcing_number);  // ← Debug
                         this.state = 0;
                         this.currentNumber = '';
                         this.formula = '';
                         this.resultDisplay.textContent = '';
                         this.formulaDisplay.textContent = '';
                         this.updateStateIndicator();
-                        this.updateForcingButton();  // ← Update button to show ()
-                        console.log('Button should show ()', this.forcing_number);  // ← Debug
+                        this.updateForcingButton();
                     }
                 } else {
                     // Normal calculation
@@ -702,12 +751,15 @@
                     this.formulaDisplay.textContent = '';
                     this.resultDisplay.textContent = '';
                     this.resultDisplay.classList.remove('final');
-                    this.updateForcingButton();  // ← Update button back to []
+                    this.updateForcingButton();
                 }
             }
 
             // Toggle sign
- 
+            toggleSign() {
+                // You can implement this if you want.
+                // Left empty here like in your original code.
+            }
 
             // Handle backspace
             handleBackspace() {
@@ -720,10 +772,8 @@
                 } else {
                     // In normal mode, delete from current number or formula
                     if (this.currentNumber !== '') {
-                        // Delete from current number
                         this.currentNumber = this.currentNumber.slice(0, -1);
                     } else if (this.formula !== '') {
-                        // Delete from formula (including last operator)
                         this.formula = this.formula.slice(0, -1);
                     }
                     
@@ -734,19 +784,18 @@
 
             // Update state indicator
             updateStateIndicator() {
-                // State indicator is now hidden
-                // The forcing button text will indicate the state instead
+                // State indicator is hidden. Forcing button reflects the state.
             }
 
             // Update forcing button display
             updateForcingButton() {
                 const forcingBtn = document.getElementById('forcingBtn');
                 if (this.forcing_number !== null) {
-                    forcingBtn.textContent = '( )';  // ← Shows () when forcing number is set
-                    forcingBtn.style.color = 'var(--text-primary)';  // ← Keep white
+                    forcingBtn.textContent = '( )';
+                    forcingBtn.style.color = 'var(--text-primary)';
                 } else {
-                    forcingBtn.textContent = '[ ]';  // ← Shows [] when no forcing number
-                    forcingBtn.style.color = 'var(--text-primary)';  // ← White
+                    forcingBtn.textContent = '[ ]';
+                    forcingBtn.style.color = 'var(--text-primary)';
                 }
             }
         }
@@ -755,6 +804,4 @@
         const calculator = new AdvancedCalculator();
     </script>
 </body>
-
 </html>
-
