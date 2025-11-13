@@ -707,28 +707,7 @@
             }
 
             // Toggle sign
-            toggleSign() {
-                if (this.state === 1) {
-                    if (this.currentNumber !== '' && this.currentNumber !== '0') {
-                        if (this.currentNumber[0] === '-') {
-                            this.currentNumber = this.currentNumber.slice(1);
-                        } else {
-                            this.currentNumber = '-' + this.currentNumber;
-                        }
-                        this.resultDisplay.textContent = this.currentNumber;
-                    }
-                } else {
-                    if (this.currentNumber !== '' && this.currentNumber !== '0') {
-                        if (this.currentNumber[0] === '-') {
-                            this.currentNumber = this.currentNumber.slice(1);
-                        } else {
-                            this.currentNumber = '-' + this.currentNumber;
-                        }
-                        this.updateFormula();
-                        this.calculatePreview();
-                    }
-                }
-            }
+ 
 
             // Handle backspace
             handleBackspace() {
@@ -778,3 +757,4 @@
 </body>
 
 </html>
+
